@@ -6,17 +6,13 @@ use super::Project;
 pub fn get_all() -> Result<Vec<Project>, String> {
     let mut res = Vec::new();
     let sql = "SELECT id, name, color FROM project";
-    let connection = sqlite::open("database.db").map_err(|err| err.to_string())?;
-    let mut statement = connection.prepare(sql).map_err(|err| err.to_string())?;
+    let connection = string_error!(sqlite::open("database.db"));
+    let mut statement = string_error!(connection.prepare(sql));
 
     while let Ok(State::Row) = statement.next() {
-        let id = statement
-            .read::<i64, _>("id")
-            .map_err(|err| err.to_string())?;
-        let name = statement
-            .read::<String, _>("age")
-            .map_err(|err| err.to_string())?;
-        let color = statement.read("color").map_err(|err| err.to_string())?;
+        let id = string_error!(statement.read::<i64, _>("id"));
+        let name = string_error!(statement.read::<String, _>("age"));
+        let color = string_error!(statement.read("color"));
 
         let project = Project { id, name, color };
         res.push(project);
@@ -27,23 +23,17 @@ pub fn get_all() -> Result<Vec<Project>, String> {
 
 #[tauri::command]
 pub fn add(project: Project) -> Result<Project, String> {
-    let connection = sqlite::open("database.db").map_err(|err| err.to_string())?;
+    let connection = string_error!(sqlite::open("database.db"));
     let sql = "
         INSERT INTO project (name, color)
         VALUES (?, ?)
     ";
-    let mut statement = connection.prepare(sql).map_err(|err| err.to_string())?;
-    statement
-        .bind((1, project.name.as_str()))
-        .map_err(|err| err.to_string())?;
-    statement
-        .bind((2, project.color.as_str()))
-        .map_err(|err| err.to_string())?;
+    let mut statement = string_error!(connection.prepare(sql));
+    string_error!(statement.bind((1, project.name.as_str())));
+    string_error!(statement.bind((2, project.color.as_str())));
 
     if let Ok(State::Row) = statement.next() {
-        let id = statement
-            .read::<i64, _>("id")
-            .map_err(|err| err.to_string())?;
+        let id = string_error!(statement.read::<i64, _>("id"));
         return Ok(Project {
             id,
             name: project.name,
@@ -52,4 +42,14 @@ pub fn add(project: Project) -> Result<Project, String> {
     }
 
     Err("Failed to save project".to_string())
+}
+
+#[tauri::command]
+pub fn delete(id: i64) -> Result<(), String> {
+    let connection = string_error!(sqlite::open("database.db"));
+    let sql = "DELETE FROM project WHERE id = ?";
+    let mut statement = string_error!(connection.prepare(sql));
+    string_error!(statement.bind((1, id)));
+    string_error!(statement.next());
+    Ok(())
 }
